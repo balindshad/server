@@ -3,7 +3,6 @@ const { WebSocketServer, WebSocket } = require("ws");
 
 const PORT = parseInt(process.env.PORT || "8080", 10);
 
-// ── хранилище комнат ─────────────────────────────────────────────────────────
 const rooms    = new Map();
 const wsToRoom = new Map();
 const wsToName = new Map();
@@ -30,14 +29,12 @@ function leaveRoom(ws) {
     const roomCode = wsToRoom.get(ws);
     const username = wsToName.get(ws) ?? "Unknown";
     if (!roomCode) return;
-
     const room = rooms.get(roomCode);
     if (room) {
         room.clients.delete(ws);
         if (room.host === ws || room.clients.size === 0) {
             broadcastToRoom(roomCode, "CHAT|[Server] Host left, room closed.");
             rooms.delete(roomCode);
-            console.log(`[Room ${roomCode}] Closed`);
         } else {
             broadcastToRoom(roomCode, `CHAT|[Server] ${username} left.`);
         }
@@ -46,7 +43,6 @@ function leaveRoom(ws) {
     wsToName.delete(ws);
 }
 
-// ── HTTP + WebSocket на одном порту ──────────────────────────────────────────
 const httpServer = http.createServer((req, res) => {
     const stats = { rooms: rooms.size, clients: wsToRoom.size, uptime: Math.floor(process.uptime()) };
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -70,11 +66,9 @@ wss.on("connection", (ws, req) => {
             const username  = sep === -1 ? rest : rest.substring(0, sep);
             const levelData = sep === -1 ? ""   : rest.substring(sep + 1);
             const roomCode  = generateRoomCode();
-
             wsToName.set(ws, username);
             wsToRoom.set(ws, roomCode);
             rooms.set(roomCode, { host: ws, levelData, clients: new Set([ws]) });
-
             send(ws, `HOST_OK|${roomCode}`);
             console.log(`[Room ${roomCode}] Created by ${username}`);
         }
@@ -83,13 +77,10 @@ wss.on("connection", (ws, req) => {
             const username = parts[0] ?? "Guest";
             const roomCode = parts[1] ?? "";
             const room     = rooms.get(roomCode);
-
             if (!room) { send(ws, "ERROR|Room not found"); return; }
-
             wsToName.set(ws, username);
             wsToRoom.set(ws, roomCode);
             room.clients.add(ws);
-
             send(ws, `JOIN_OK|${roomCode}|${room.levelData}`);
             broadcastToRoom(roomCode, `CHAT|[Server] ${username} joined!`, ws);
             console.log(`[Room ${roomCode}] ${username} joined (${room.clients.size} total)`);
@@ -110,5 +101,5 @@ wss.on("connection", (ws, req) => {
 });
 
 httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`GD Collab Relay on port ${PORT}`);
+    console.log(`GD Collab Relay started on port ${PORT}`);
 });
